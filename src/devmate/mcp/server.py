@@ -4,7 +4,7 @@ from mcp.server import NotificationOptions, Server
 from mcp.server.stdio import stdio_server
 import mcp.types as types
 from tavily import TavilyClient
-from devmate.core.config import settings
+from src.devmate.core.config import settings
 
 # 初始化 Tavily 客户端
 tavily = TavilyClient(api_key=settings.TAVILY_API_KEY)

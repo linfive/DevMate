@@ -43,13 +43,20 @@ class MCPSearchTool(BaseTool):
 
     def _run(self, query: str, search_depth: str = "basic") -> str:
         """同步执行（LangChain 需要，但我们主要用异步）"""
-        # 在同步环境中运行异步代码的简易方法
-        loop = asyncio.get_event_loop()
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            # 如果当前线程没有 loop，创建一个新的
+            return asyncio.run(self._arun(query, search_depth))
+            
         if loop.is_running():
-            # 如果已经在运行循环中，这种方式可能不适用，但在测试中通常没问题
+            # 如果 loop 已经在运行（例如在异步环境的线程池中），使用 nest_asyncio
             import nest_asyncio
             nest_asyncio.apply()
-        return asyncio.run(self._arun(query, search_depth))
+            return asyncio.run(self._arun(query, search_depth))
+        else:
+            # 如果有 loop 但没运行
+            return asyncio.run(self._arun(query, search_depth))
 
 def get_mcp_search_tool() -> MCPSearchTool:
     """获取包装好的 MCP 搜索工具"""
@@ -57,7 +64,7 @@ def get_mcp_search_tool() -> MCPSearchTool:
     # 使用绝对路径的 PYTHONPATH，解决不同目录下运行的模块导入问题
     server_params = StdioServerParameters(
         command=sys.executable,
-        args=["-m", "devmate.mcp.server"],
+        args=["-m", "src.devmate.mcp.server"],
         env={
             "PYTHONPATH": src_path,
             "PATH": os.environ.get("PATH", "") # 保留系统 PATH
