@@ -7,11 +7,10 @@ from langchain.tools import BaseTool
 from pydantic import Field
 from typing import Optional, Type, Any
 
-# 获取 src 目录的绝对路径，确保子进程能找到包
+# 获取项目根目录的绝对路径，确保子进程能找到 src 包
 current_file_path = os.path.dirname(os.path.abspath(__file__))
-# 从 src/devmate/mcp/ 往上跳三级到项目根目录，再进 src
-project_src_node = os.path.abspath(os.path.join(current_file_path, "..", "..", ".."))
-src_path = os.path.join(project_src_node, "src")
+# client.py 位于 src/devmate/mcp/，往上跳 3 级到项目根目录 (DevMate)
+project_root = os.path.abspath(os.path.join(current_file_path, "..", "..", ".."))
 
 class MCPSearchTool(BaseTool):
     """LangChain 工具包装器，用于调用 MCP 搜索工具"""
@@ -24,6 +23,7 @@ class MCPSearchTool(BaseTool):
     async def _arun(self, query: str, search_depth: str = "basic") -> str:
         """异步执行工具"""
         try:
+            print(f"\n--- [Tool] search_web: {query} ---", flush=True)
             async with stdio_client(self.server_params) as (read, write):
                 async with ClientSession(read, write) as session:
                     await session.initialize()
@@ -66,9 +66,10 @@ def get_mcp_search_tool() -> MCPSearchTool:
         command=sys.executable,
         args=["-m", "src.devmate.mcp.server"],
         env={
-            "PYTHONPATH": src_path,
+            "PYTHONPATH": project_root,
             "PATH": os.environ.get("PATH", "") # 保留系统 PATH
-        }
+        },
+        cwd=project_root,
     )
     
     return MCPSearchTool(server_params=server_params)

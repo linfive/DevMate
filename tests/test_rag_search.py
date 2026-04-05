@@ -1,11 +1,11 @@
 import sys
 import os
 
-# 动态添加 src 路径到 PYTHONPATH
+# 动态添加项目根目录到 sys.path，确保能找到 src 包
 current_file_path = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.abspath(os.path.join(current_file_path, ".."))
-src_path = os.path.join(project_root, "src")
-sys.path.append(src_path)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 from src.devmate.rag.tool import get_rag_tool
 

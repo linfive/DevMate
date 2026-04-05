@@ -15,6 +15,7 @@ class RAGSearchTool(BaseTool):
 
     def _run(self, query: str) -> str:
         """执行同步检索"""
+        print(f"\n--- [Tool] search_knowledge_base: {query} ---", flush=True)
         return self.retriever.retrieve(query)
 
     async def _arun(self, query: str) -> str:

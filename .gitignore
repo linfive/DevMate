@@ -19,3 +19,6 @@ DevMate_Project_Plan.md
 # Logs
 *.log
 debug.log
+
+# Agent Generated Sandbox
+generated/

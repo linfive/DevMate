@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     AI_BASE_URL: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
     API_KEY: str
     MODEL_NAME: str = "qwen-max"
+    ROUTER_MODEL_NAME: Optional[str] = None
     EMBEDDING_MODEL_NAME: str = "text-embedding-v3"
 
     # === MCP 网络搜索配置 ===
@@ -34,3 +35,11 @@ class Settings(BaseSettings):
 
 # 全局配置实例
 settings = Settings()
+
+# 显式注入环境变量到 os.environ，确保 LangChain 追踪工具能读取到
+if settings.LANGCHAIN_TRACING_V2.lower() == "true":
+    os.environ["LANGCHAIN_TRACING_V2"] = "true"
+    if settings.LANGCHAIN_API_KEY:
+        os.environ["LANGCHAIN_API_KEY"] = settings.LANGCHAIN_API_KEY
+    os.environ["LANGCHAIN_PROJECT"] = settings.LANGCHAIN_PROJECT
+    os.environ["LANGCHAIN_ENDPOINT"] = settings.LANGCHAIN_ENDPOINT
