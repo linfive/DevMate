@@ -15,7 +15,8 @@ from langchain_core.messages import HumanMessage, AIMessage
 
 # 强制设置标准输出为 UTF-8，解决 Windows 控制台编码问题
 if sys.platform == "win32":
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace", line_buffering=True)
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace", line_buffering=True)
 
 async def chat_loop():
     """主 Agent 交互循环"""
@@ -30,6 +31,7 @@ async def chat_loop():
     while True:
         try:
             user_input = input("👤 您: ").strip()
+            user_input = "".join(ch for ch in user_input if not (0xD800 <= ord(ch) <= 0xDFFF)).strip()
             
             if not user_input:
                 continue

@@ -3,7 +3,8 @@ from langchain_openai import ChatOpenAI
 from src.devmate.core.config import settings
 from src.devmate.mcp.client import get_mcp_search_tool
 from src.devmate.rag.tool import get_rag_tool
-from .prompts import DEV_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT
+from .prompts import DEV_SYSTEM_PROMPT, DEV_SIMPLE_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT
+from .reader import FileReaderTool
 from .writer import FileWriterTool
 
 def create_devmate_agent_graph(mode: str = "dev"):
@@ -25,11 +26,15 @@ def create_devmate_agent_graph(mode: str = "dev"):
     if mode == "chat":
         tools = []
         system_prompt = CHAT_SYSTEM_PROMPT
+    elif mode == "dev_no_tools":
+        tools = []
+        system_prompt = DEV_SIMPLE_SYSTEM_PROMPT
     else:
         print("--- [Agent Factory] 正在加载工具集 ---")
         tools = [
             get_mcp_search_tool(),
             get_rag_tool(),
+            FileReaderTool(),
             FileWriterTool()
         ]
         system_prompt = DEV_SYSTEM_PROMPT

@@ -1,4 +1,6 @@
 import os
+import json
+import shutil
 from langchain.tools import BaseTool
 from pydantic import Field
 from src.devmate.rag.loader import DocLoader
@@ -22,6 +24,39 @@ class RAGSearchTool(BaseTool):
         """执行异步检索 (暂用同步实现)"""
         return self._run(query)
 
+def _compute_docs_manifest(docs_dir: str) -> dict[str, float]:
+    manifest: dict[str, float] = {}
+    if not os.path.exists(docs_dir):
+        return manifest
+    for root, _, files in os.walk(docs_dir):
+        for name in files:
+            if not name.lower().endswith(".md"):
+                continue
+            abs_path = os.path.join(root, name)
+            rel = os.path.relpath(abs_path, docs_dir).replace("\\", "/")
+            try:
+                manifest[rel] = os.path.getmtime(abs_path)
+            except OSError:
+                continue
+    return manifest
+
+def _load_manifest(path: str) -> dict[str, float] | None:
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, dict):
+            return {str(k): float(v) for k, v in data.items()}
+    except Exception:
+        return None
+    return None
+
+def _save_manifest(path: str, manifest: dict[str, float]) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(manifest, f, ensure_ascii=False, indent=2)
+
 def get_rag_tool() -> RAGSearchTool:
     """初始化全链路 RAG 系统并返回工具实例"""
     # 路径配置
@@ -33,23 +68,34 @@ def get_rag_tool() -> RAGSearchTool:
     # 1. 存储管理器初始化
     store_manager = DocStore(persist_dir)
     
-    # 2. 检查向量库是否已存在
+    current_manifest = _compute_docs_manifest(docs_dir)
+    manifest_path = os.path.join(persist_dir, "_devmate_docs_manifest.json")
+
     if os.path.exists(persist_dir):
-        print(f"--- [RAG] 发现现有向量库，跳过初始化 ---")
-        vector_store = store_manager.get_or_create_store()
+        old_manifest = _load_manifest(manifest_path)
+        if old_manifest == current_manifest:
+            print(f"--- [RAG] 发现现有向量库，跳过初始化 ---")
+            vector_store = store_manager.get_or_create_store()
+        else:
+            print("--- [RAG] 文档已变更，重建向量库 ---")
+            try:
+                shutil.rmtree(persist_dir)
+            except Exception:
+                pass
+            loader = DocLoader(docs_dir)
+            docs = loader.load_markdown()
+            splitter = DocSplitter(chunk_size=1000, chunk_overlap=100)
+            splits = splitter.split(docs)
+            vector_store = store_manager.get_or_create_store(splits if splits else None)
+            _save_manifest(manifest_path, current_manifest)
     else:
-        # 只有在库不存在时才进行加载和切分
         print(f"--- [RAG] 向量库不存在，开始初始化全量文档 ---")
-        # 1. 加载
         loader = DocLoader(docs_dir)
         docs = loader.load_markdown()
-
-        # 2. 切分
         splitter = DocSplitter(chunk_size=1000, chunk_overlap=100)
         splits = splitter.split(docs)
-
-        # 3. 存储
         vector_store = store_manager.get_or_create_store(splits if splits else None)
+        _save_manifest(manifest_path, current_manifest)
 
     # 4. 检索器
     retriever = DocRetriever(vector_store)

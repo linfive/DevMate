@@ -20,6 +20,18 @@ class MCPSearchTool(BaseTool):
     # 强制指定 server 参数，不让 Pydantic 误认为是 fields
     server_params: StdioServerParameters = Field(exclude=True)
 
+    def _sanitize_text(self, text: str) -> str:
+        if not text:
+            return ""
+        cleaned = []
+        for ch in text:
+            code = ord(ch)
+            if 0xD800 <= code <= 0xDFFF:
+                cleaned.append("\ufffd")
+            else:
+                cleaned.append(ch)
+        return "".join(cleaned)
+
     async def _arun(self, query: str, search_depth: str = "basic") -> str:
         """异步执行工具"""
         try:
@@ -36,7 +48,7 @@ class MCPSearchTool(BaseTool):
                     
                     # 解析结果
                     if result and result.content:
-                        return result.content[0].text
+                        return self._sanitize_text(result.content[0].text)
                     return "No results found."
         except Exception as e:
             return f"Error calling MCP tool: {str(e)}"
@@ -51,9 +63,12 @@ class MCPSearchTool(BaseTool):
             
         if loop.is_running():
             # 如果 loop 已经在运行（例如在异步环境的线程池中），使用 nest_asyncio
-            import nest_asyncio
-            nest_asyncio.apply()
-            return asyncio.run(self._arun(query, search_depth))
+            try:
+                import nest_asyncio
+                nest_asyncio.apply()
+                return asyncio.run(self._arun(query, search_depth))
+            except ImportError:
+                return "Error calling MCP tool: nest_asyncio is required only for sync calls inside a running event loop. Use the async tool path instead."
         else:
             # 如果有 loop 但没运行
             return asyncio.run(self._arun(query, search_depth))

@@ -22,3 +22,6 @@ debug.log
 
 # Agent Generated Sandbox
 generated/
+
+# Local vector store (ChromaDB)
+.chroma_db/
