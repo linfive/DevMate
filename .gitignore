@@ -25,3 +25,6 @@ generated/
 
 # Local vector store (ChromaDB)
 .chroma_db/
+
+# Local RAG state
+.devmate_state/

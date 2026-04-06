@@ -1,10 +1,16 @@
 import asyncio
+import os
+import sys
+import uvicorn
 from mcp.server.models import InitializationOptions
 from mcp.server import NotificationOptions, Server
 from mcp.server.stdio import stdio_server
+from mcp.server.sse import SseServerTransport
 import mcp.types as types
 from tavily import TavilyClient
 from src.devmate.core.config import settings
+from starlette.applications import Starlette
+from starlette.routing import Route, Mount
 
 # 初始化 Tavily 客户端
 tavily = TavilyClient(api_key=settings.TAVILY_API_KEY)
@@ -80,8 +86,7 @@ async def handle_call_tool(
             )
         ]
 
-async def main():
-    # 运行 stdio 模式的 MCP Server
+async def run_stdio() -> None:
     async with stdio_server() as (read_stream, write_stream):
         await server.run(
             read_stream,
@@ -96,5 +101,39 @@ async def main():
             ),
         )
 
+
+def run_sse() -> None:
+    sse = SseServerTransport("/messages/")
+
+    async def handle_sse(request):
+        async with sse.connect_sse(request.scope, request.receive, request._send) as streams:
+            await server.run(
+                streams[0],
+                streams[1],
+                InitializationOptions(
+                    server_name="devmate-search-server",
+                    server_version="0.1.0",
+                    capabilities=server.get_capabilities(
+                        notification_options=NotificationOptions(),
+                        experimental_capabilities={},
+                    ),
+                ),
+            )
+
+    app = Starlette(
+        routes=[
+            Route("/sse", endpoint=handle_sse),
+            Mount("/messages/", app=sse.handle_post_message),
+        ]
+    )
+
+    port = int(os.environ.get("DEVMATE_MCP_PORT", "8080"))
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    transport = os.environ.get("DEVMATE_MCP_TRANSPORT", "").strip().lower()
+    if "--sse" in sys.argv or transport == "sse":
+        run_sse()
+    else:
+        asyncio.run(run_stdio())

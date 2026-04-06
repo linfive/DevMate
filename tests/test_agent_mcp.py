@@ -27,7 +27,8 @@ async def test_agent_with_mcp():
         model=settings.MODEL_NAME,
         api_key=settings.API_KEY,
         base_url=settings.AI_BASE_URL,
-        temperature=0
+        temperature=0,
+        extra_body={"enable_thinking": False},
     )
     
     # 2. 获取 MCP 搜索工具

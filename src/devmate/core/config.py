@@ -26,6 +26,12 @@ class Settings(BaseSettings):
 
     # === MCP 网络搜索配置 ===
     TAVILY_API_KEY: str
+    DEVMATE_MCP_URL: Optional[str] = None
+
+    CHROMA_MODE: str = "local"
+    CHROMA_SERVER_HOST: str = "chromadb"
+    CHROMA_SERVER_PORT: int = 8000
+    CHROMA_COLLECTION_NAME: str = "devmate_docs"
 
     # === 可观测性配置 ===
     LANGCHAIN_TRACING_V2: str = "true"

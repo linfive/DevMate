@@ -1,8 +1,10 @@
 import os
 import json
 import shutil
+import hashlib
 from langchain.tools import BaseTool
 from pydantic import Field
+from src.devmate.core.config import settings
 from src.devmate.rag.loader import DocLoader
 from src.devmate.rag.splitter import DocSplitter
 from src.devmate.rag.store import DocStore
@@ -59,17 +61,29 @@ def _save_manifest(path: str, manifest: dict[str, float]) -> None:
 
 def get_rag_tool() -> RAGSearchTool:
     """初始化全链路 RAG 系统并返回工具实例"""
-    # 路径配置
     current_file_path = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.abspath(os.path.join(current_file_path, "..", "..", ".."))
     docs_dir = os.path.join(project_root, "docs")
-    persist_dir = os.path.join(project_root, ".chroma_db")
-
-    # 1. 存储管理器初始化
-    store_manager = DocStore(persist_dir)
     
     current_manifest = _compute_docs_manifest(docs_dir)
+
+    persist_dir = (
+        os.path.join(project_root, ".devmate_state")
+        if settings.CHROMA_MODE.lower() == "http"
+        else os.path.join(project_root, ".chroma_db")
+    )
+
     manifest_path = os.path.join(persist_dir, "_devmate_docs_manifest.json")
+
+    base = settings.CHROMA_COLLECTION_NAME
+    if settings.CHROMA_MODE.lower() == "http":
+        manifest_str = json.dumps(current_manifest, ensure_ascii=False, sort_keys=True)
+        suffix = hashlib.md5(manifest_str.encode("utf-8")).hexdigest()[:8]
+        collection_name = f"{base}_{suffix}"
+    else:
+        collection_name = base
+
+    store_manager = DocStore(persist_dir, collection_name=collection_name)
 
     if os.path.exists(persist_dir):
         old_manifest = _load_manifest(manifest_path)

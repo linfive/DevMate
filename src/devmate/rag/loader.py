@@ -1,6 +1,6 @@
 import os
+from pathlib import Path
 from typing import List
-from langchain_community.document_loaders import DirectoryLoader, UnstructuredMarkdownLoader
 from langchain_core.documents import Document
 
 class DocLoader:
@@ -16,15 +16,21 @@ class DocLoader:
             return []
             
         print(f"--- [Loader] 正在从 {self.docs_dir} 加载文档 ---")
-        loader = DirectoryLoader(
-            self.docs_dir,
-            glob="**/*.md",
-            loader_cls=UnstructuredMarkdownLoader
-        )
-        try:
-            documents = loader.load()
-            print(f"✅ [Loader] 成功加载 {len(documents)} 个文档")
-            return documents
-        except Exception as e:
-            print(f"❌ [Loader] 加载失败: {str(e)}")
-            return []
+        docs_path = Path(self.docs_dir)
+        documents: List[Document] = []
+        for path in docs_path.rglob("*.md"):
+            if not path.is_file():
+                continue
+            try:
+                text = path.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                text = path.read_text(encoding="utf-8", errors="replace")
+            except Exception as e:
+                print(f"Error loading file {path}")
+                print(f"❌ [Loader] 加载失败: {str(e)}")
+                continue
+            rel = str(path.relative_to(docs_path)).replace("\\", "/")
+            documents.append(Document(page_content=text, metadata={"source": rel}))
+
+        print(f"✅ [Loader] 成功加载 {len(documents)} 个文档")
+        return documents

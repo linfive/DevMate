@@ -1,0 +1,50 @@
+services:
+  chromadb:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    command: ["chroma", "run", "--host", "0.0.0.0", "--port", "8000", "--path", "/chroma/chroma"]
+    volumes:
+      - ./.chroma_db:/chroma/chroma
+
+  mcp-search:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    stdin_open: true
+    tty: true
+    env_file:
+      - ./.env
+    environment:
+      - LANGCHAIN_TRACING_V2=${LANGCHAIN_TRACING_V2:-true}
+      - LANGCHAIN_PROJECT=${LANGCHAIN_PROJECT:-DevMate}
+      - LANGCHAIN_ENDPOINT=${LANGCHAIN_ENDPOINT:-https://api.smith.langchain.com}
+      - DEVMATE_MCP_TRANSPORT=sse
+      - DEVMATE_MCP_PORT=8080
+    command: ["python", "-m", "src.devmate.mcp.server", "--sse"]
+
+  devmate:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    stdin_open: true
+    tty: true
+    env_file:
+      - ./.env
+    environment:
+      - LANGCHAIN_TRACING_V2=${LANGCHAIN_TRACING_V2:-true}
+      - LANGCHAIN_PROJECT=${LANGCHAIN_PROJECT:-DevMate}
+      - LANGCHAIN_ENDPOINT=${LANGCHAIN_ENDPOINT:-https://api.smith.langchain.com}
+      - DEVMATE_MCP_URL=http://mcp-search:8080/sse
+      - CHROMA_MODE=http
+      - CHROMA_SERVER_HOST=chromadb
+      - CHROMA_SERVER_PORT=8000
+    volumes:
+      - ./generated:/app/generated
+      - ./.devmate_state:/app/.devmate_state
+    depends_on:
+      - chromadb
+      - mcp-search

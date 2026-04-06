@@ -19,7 +19,8 @@ def create_devmate_agent_graph(mode: str = "dev"):
         openai_api_key=settings.API_KEY,
         openai_api_base=settings.AI_BASE_URL,
         temperature=0.1,
-        streaming=True
+        streaming=True,
+        extra_body={"enable_thinking": False},
     )
 
     # 2. 注入工具集
